@@ -1,0 +1,16 @@
+.{
+    .name = .xmp,
+    .fingerprint = 0x25f5842ca8953833,
+    .version = "4.7.0",
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{
+        .xmp = .{
+            .url = "https://github.com/libxmp/libxmp/releases/download/libxmp-4.7.0/libxmp-4.7.0.tar.gz",
+            .hash = "N-V-__8AAKWoMgBbod0U9hJqcgYn3zovkvPTN6uyAPSvEHGH",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+    },
+}
