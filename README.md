@@ -20,6 +20,14 @@ pub fn build(b: *std.Build) !void {
     const dep_xmp = b.dependency("xmp", .{
         .target = target,
         .optimize = optimize,
+        // force linking mode (default is static)
+        // .@"link-mode" = .dynamic,
+        // force enable or disable Position Independent Code (PIC) 
+        // .pic = true,
+        // disable archive depackers support (they're enabled by default)
+        // .@"enable-depackers" = false,
+        // disable ProWizard format loaders (they're enabled by default)
+        // .@"enable-prowizard" = false,
     });
     const lib_xmp = dep_xmp.artifact("xmp");
 

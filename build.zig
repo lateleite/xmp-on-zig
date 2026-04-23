@@ -4,13 +4,17 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const link_mode = b.option(std.builtin.LinkMode, "link-mode", "Linking mode for the libraries") orelse
+        .static;
     const pic = b.option(bool, "pic", "Produce Position Independent Code");
+    const enable_depackers = b.option(bool, "enable-depackers", "Enable archive depackers") orelse true;
+    const enable_prowizard = b.option(bool, "enable-prowizard", "Enable ProWizard format loaders") orelse true;
 
     const upstream = b.dependency("xmp", .{});
 
     const lib = b.addLibrary(.{
         .name = "xmp",
-        .linkage = .static,
+        .linkage = link_mode,
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -19,9 +23,16 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    const cflags = [_][]const u8{
-        "-DLIBXMP_STATIC",
-    };
+    switch (link_mode) {
+        .static => lib.root_module.addCMacro("LIBXMP_STATIC", "1"),
+        .dynamic => lib.root_module.addCMacro("BUILDING_DLL", "1"),
+    }
+    if (!enable_depackers) {
+        lib.root_module.addCMacro("LIBXMP_NO_DEPACKERS", "1");
+    }
+    if (!enable_prowizard) {
+        lib.root_module.addCMacro("LIBXMP_NO_PROWIZARD", "1");
+    }
 
     lib.root_module.addCSourceFiles(.{
         .root = upstream.path("src"),
@@ -121,97 +132,110 @@ pub fn build(b: *std.Build) void {
             "loaders/abk_load.c",
             "loaders/coco_load.c",
             "loaders/xmf_load.c",
-
-            // prowizard
-            "loaders/prowizard/prowiz.c",
-            "loaders/prowizard/ptktable.c",
-            "loaders/prowizard/tuning.c",
-            "loaders/prowizard/ac1d.c",
-            "loaders/prowizard/di.c",
-            "loaders/prowizard/eureka.c",
-            "loaders/prowizard/fc-m.c",
-            "loaders/prowizard/fuchs.c",
-            "loaders/prowizard/fuzzac.c",
-            "loaders/prowizard/gmc.c",
-            "loaders/prowizard/heatseek.c",
-            "loaders/prowizard/ksm.c",
-            "loaders/prowizard/mp.c",
-            "loaders/prowizard/np1.c",
-            "loaders/prowizard/np2.c",
-            "loaders/prowizard/np3.c",
-            "loaders/prowizard/p61a.c",
-            "loaders/prowizard/pm10c.c",
-            "loaders/prowizard/pm18a.c",
-            "loaders/prowizard/pha.c",
-            "loaders/prowizard/prun1.c",
-            "loaders/prowizard/prun2.c",
-            "loaders/prowizard/tdd.c",
-            "loaders/prowizard/unic.c",
-            "loaders/prowizard/unic2.c",
-            "loaders/prowizard/wn.c",
-            "loaders/prowizard/zen.c",
-            "loaders/prowizard/tp1.c",
-            "loaders/prowizard/tp3.c",
-            "loaders/prowizard/p40.c",
-            "loaders/prowizard/xann.c",
-            "loaders/prowizard/theplayer.c",
-            "loaders/prowizard/pp10.c",
-            "loaders/prowizard/pp21.c",
-            "loaders/prowizard/starpack.c",
-            "loaders/prowizard/titanics.c",
-            "loaders/prowizard/skyt.c",
-            "loaders/prowizard/novotrade.c",
-            "loaders/prowizard/hrt.c",
-            "loaders/prowizard/noiserun.c",
-
-            // depacker
-            "depackers/depacker.c",
-            "depackers/ppdepack.c",
-            "depackers/unsqsh.c",
-            "depackers/mmcmp.c",
-            "depackers/s404_dec.c",
-            "depackers/arc.c",
-            "depackers/arcfs.c",
-            "depackers/arc_unpack.c",
-            "depackers/lzx.c",
-            "depackers/lzx_unpack.c",
-            "depackers/ice.c",
-            "depackers/ice_unpack.c",
-            "depackers/miniz_zip.c",
-            "depackers/unzip.c",
-            "depackers/gunzip.c",
-            "depackers/uncompress.c",
-            "depackers/bunzip2.c",
-            "depackers/unlha.c",
-            "depackers/unxz.c",
-            "depackers/xz_dec_lzma2.c",
-            "depackers/xz_dec_stream.c",
-            "depackers/crc32.c",
-            "depackers/xfnmatch.c",
-            "depackers/ptpopen.c",
-            "depackers/xfd.c",
-            "depackers/xfd_link.c",
-            "depackers/lhasa/ext_header.c",
-            "depackers/lhasa/lha_file_header.c",
-            "depackers/lhasa/lha_input_stream.c",
-            "depackers/lhasa/lha_decoder.c",
-            "depackers/lhasa/lha_reader.c",
-            "depackers/lhasa/lha_basic_reader.c",
-            "depackers/lhasa/lh1_decoder.c",
-            "depackers/lhasa/lh5_decoder.c",
-            "depackers/lhasa/lh6_decoder.c",
-            "depackers/lhasa/lh7_decoder.c",
-            "depackers/lhasa/lhx_decoder.c",
-            "depackers/lhasa/lk7_decoder.c",
-            "depackers/lhasa/lz5_decoder.c",
-            "depackers/lhasa/lzs_decoder.c",
-            "depackers/lhasa/null_decoder.c",
-            "depackers/lhasa/pm1_decoder.c",
-            "depackers/lhasa/pm2_decoder.c",
-            "depackers/lhasa/macbinary.c",
         },
-        .flags = &cflags,
     });
+
+    if (enable_depackers) {
+        lib.root_module.addCSourceFiles(.{
+            .root = upstream.path("src"),
+            .files = &.{
+                // depacker
+                "depackers/depacker.c",
+                "depackers/ppdepack.c",
+                "depackers/unsqsh.c",
+                "depackers/mmcmp.c",
+                "depackers/s404_dec.c",
+                "depackers/arc.c",
+                "depackers/arcfs.c",
+                "depackers/arc_unpack.c",
+                "depackers/lzx.c",
+                "depackers/lzx_unpack.c",
+                "depackers/ice.c",
+                "depackers/ice_unpack.c",
+                "depackers/miniz_zip.c",
+                "depackers/unzip.c",
+                "depackers/gunzip.c",
+                "depackers/uncompress.c",
+                "depackers/bunzip2.c",
+                "depackers/unlha.c",
+                "depackers/unxz.c",
+                "depackers/xz_dec_lzma2.c",
+                "depackers/xz_dec_stream.c",
+                "depackers/crc32.c",
+                "depackers/xfnmatch.c",
+                "depackers/ptpopen.c",
+                "depackers/xfd.c",
+                "depackers/xfd_link.c",
+                "depackers/lhasa/ext_header.c",
+                "depackers/lhasa/lha_file_header.c",
+                "depackers/lhasa/lha_input_stream.c",
+                "depackers/lhasa/lha_decoder.c",
+                "depackers/lhasa/lha_reader.c",
+                "depackers/lhasa/lha_basic_reader.c",
+                "depackers/lhasa/lh1_decoder.c",
+                "depackers/lhasa/lh5_decoder.c",
+                "depackers/lhasa/lh6_decoder.c",
+                "depackers/lhasa/lh7_decoder.c",
+                "depackers/lhasa/lhx_decoder.c",
+                "depackers/lhasa/lk7_decoder.c",
+                "depackers/lhasa/lz5_decoder.c",
+                "depackers/lhasa/lzs_decoder.c",
+                "depackers/lhasa/null_decoder.c",
+                "depackers/lhasa/pm1_decoder.c",
+                "depackers/lhasa/pm2_decoder.c",
+                "depackers/lhasa/macbinary.c",
+            },
+        });
+    }
+
+    if (enable_prowizard) {
+        lib.root_module.addCSourceFiles(.{
+            .root = upstream.path("src"),
+            .files = &.{
+                // prowizard
+                "loaders/prowizard/prowiz.c",
+                "loaders/prowizard/ptktable.c",
+                "loaders/prowizard/tuning.c",
+                "loaders/prowizard/ac1d.c",
+                "loaders/prowizard/di.c",
+                "loaders/prowizard/eureka.c",
+                "loaders/prowizard/fc-m.c",
+                "loaders/prowizard/fuchs.c",
+                "loaders/prowizard/fuzzac.c",
+                "loaders/prowizard/gmc.c",
+                "loaders/prowizard/heatseek.c",
+                "loaders/prowizard/ksm.c",
+                "loaders/prowizard/mp.c",
+                "loaders/prowizard/np1.c",
+                "loaders/prowizard/np2.c",
+                "loaders/prowizard/np3.c",
+                "loaders/prowizard/p61a.c",
+                "loaders/prowizard/pm10c.c",
+                "loaders/prowizard/pm18a.c",
+                "loaders/prowizard/pha.c",
+                "loaders/prowizard/prun1.c",
+                "loaders/prowizard/prun2.c",
+                "loaders/prowizard/tdd.c",
+                "loaders/prowizard/unic.c",
+                "loaders/prowizard/unic2.c",
+                "loaders/prowizard/wn.c",
+                "loaders/prowizard/zen.c",
+                "loaders/prowizard/tp1.c",
+                "loaders/prowizard/tp3.c",
+                "loaders/prowizard/p40.c",
+                "loaders/prowizard/xann.c",
+                "loaders/prowizard/theplayer.c",
+                "loaders/prowizard/pp10.c",
+                "loaders/prowizard/pp21.c",
+                "loaders/prowizard/starpack.c",
+                "loaders/prowizard/titanics.c",
+                "loaders/prowizard/skyt.c",
+                "loaders/prowizard/novotrade.c",
+                "loaders/prowizard/hrt.c",
+                "loaders/prowizard/noiserun.c",
+            },
+        });
+    }
 
     lib.root_module.addIncludePath(upstream.path("include"));
     lib.root_module.addIncludePath(upstream.path("src"));
