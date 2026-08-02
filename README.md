@@ -2,7 +2,11 @@
 
 This repository wraps the upstream Extended Module Player library source code with Zig's build system.
 
-Zig 0.15.2 is required.
+Zig 0.17.0's development version is required.
+
+Need a different version?
+
+- [0.15.2 branch](https://github.com/lateleite/xmp-on-zig/tree/zig-0.15.2)
 
 ## Installing as a `build.zig.zon` package
 
